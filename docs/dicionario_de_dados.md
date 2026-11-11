@@ -13,6 +13,8 @@ Tabelas e colunas usadas no projeto, com o nome original da base Home Credit e o
 
 Histórico de pagamento das parcelas dos contratos. É a tabela central do projeto.
 
+Na camada staging (`staging.installments`), as linhas são consolidadas em uma por parcela, com duas colunas a mais: `n_payments` (quantidade de pagamentos) e `n_versions` (quantidade de versões do calendário). A regra de consolidação está em `sql/04_staging_installments.sql`.
+
 - **Uma linha:** um pagamento de uma parcela. Uma parcela paga em partes aparece em mais de uma linha.
 - **Total:** 13.605.401 linhas.
 - **Liga com:** `contracts` por `contract_id` e `clients` por `client_id`.
@@ -43,7 +45,7 @@ Contratos do cliente na Home Credit.
 | `SK_ID_PREV` | `contract_id` | Identificador do contrato |
 | `SK_ID_CURR` | `client_id` | Identificador do cliente |
 | `NAME_CONTRACT_TYPE` | `contract_type` | Tipo: empréstimo em dinheiro, compra parcelada ou crédito rotativo |
-| `NAME_CONTRACT_STATUS` | `contract_status` | Situação: aprovado, cancelado, recusado ou oferta não usada |
+| `NAME_CONTRACT_STATUS` | (filtro) | Situação: aprovado, cancelado, recusado ou oferta não usada. Usada só no recorte; a camada staging guarda apenas os aprovados |
 | `AMT_CREDIT` | `credit_amount` | Valor financiado |
 | `AMT_ANNUITY` | `installment_amount` | Valor da parcela prevista no contrato |
 | `AMT_DOWN_PAYMENT` | `down_payment` | Valor de entrada |
@@ -66,8 +68,9 @@ Dados cadastrais do cliente no momento do pedido atual.
 | --- | --- | --- |
 | `SK_ID_CURR` | `client_id` | Identificador do cliente |
 | `AMT_INCOME_TOTAL` | `income` | Renda declarada |
-| `DAYS_BIRTH` | `birth_day` | Dia de nascimento (relativo); usado para calcular a idade |
-| `DAYS_EMPLOYED` | `employment_start_day` | Início do emprego atual (relativo) |
+| `DAYS_BIRTH` | `age_years` | Idade em anos, calculada a partir do dia de nascimento relativo |
+| `DAYS_EMPLOYED` | `years_employed` | Tempo no emprego atual, em anos. Vazio para quem não tem emprego atual |
+| `DAYS_EMPLOYED` | `no_current_job` | 1 quando o cliente não tem emprego atual (código 365243), 0 nos demais casos |
 | `NAME_INCOME_TYPE` | `income_type` | Tipo de renda (assalariado, aposentado, empresário etc.) |
 | `NAME_EDUCATION_TYPE` | `education_level` | Escolaridade |
 | `REGION_RATING_CLIENT` | `region_rating` | Nota da região onde o cliente mora (1, 2 ou 3) |
