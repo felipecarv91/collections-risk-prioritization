@@ -31,3 +31,17 @@ Ambiente conda próprio (`collections-risk`), com versões fixas em `environment
 ## 6. Convenção de idioma
 
 Nomes de tabelas, colunas e variáveis em inglês. Comentários no código em português.
+
+## 7. Recorte: contratos aprovados e parcelados
+
+**Alternativa considerada:** usar todos os 1.670.214 contratos da tabela `previous_application`.
+
+**Motivo:** só contratos aprovados geram parcelas e cobrança. Cancelados (316.319), recusados (290.678) e ofertas não usadas (26.436) nunca tiveram pagamento. O crédito rotativo (193.164 contratos) também fica de fora, porque funciona como cartão de crédito, sem parcela fixa nem vencimento definido, e distorceria a análise de atraso. Ficam os empréstimos em dinheiro (`Cash loans`) e as compras parceladas (`Consumer loans`).
+
+## 8. Variáveis sensíveis fora da análise
+
+Sexo (`CODE_GENDER`) e estado civil (`NAME_FAMILY_STATUS`) não entram no modelo nem na priorização. Além do risco de viés, não são critérios justos para definir como cobrar um cliente.
+
+## 9. Alvo próprio, sem a coluna TARGET
+
+A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, com uma definição de atraso que não é pública por completo. O projeto constrói o próprio alvo a partir da tabela de parcelas e de uma data de corte, para controlar exatamente o que está sendo previsto.
