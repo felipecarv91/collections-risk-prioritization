@@ -45,3 +45,9 @@ Sexo (`CODE_GENDER`) e estado civil (`NAME_FAMILY_STATUS`) não entram no modelo
 ## 9. Alvo próprio, sem a coluna TARGET
 
 A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, com uma definição de atraso que não é pública por completo. O projeto constrói o próprio alvo a partir da tabela de parcelas e de uma data de corte, para controlar exatamente o que está sendo previsto.
+
+## 10. Carga da camada raw por Python
+
+**Alternativa considerada:** `BULK INSERT`, executado pelo próprio SQL Server.
+
+**Motivo:** o `BULK INSERT` lê o arquivo com a conta do serviço do SQL Server, que não tem acesso às pastas do usuário no Windows. Usá-lo exigiria alterar permissões de pasta em cada computador onde o projeto rodar. O script `src/load_raw.py` lê os CSVs em blocos com pandas e grava pelo `pyodbc`, funciona em qualquer máquina com o ambiente do projeto e confere ao final se o total de linhas no banco bate com o do arquivo. As tabelas continuam definidas em SQL (`sql/02_create_raw_tables.sql`).

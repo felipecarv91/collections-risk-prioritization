@@ -52,6 +52,8 @@ Contratos do cliente na Home Credit.
 | `DAYS_FIRST_DUE` | `first_due_day` | Dia do primeiro vencimento (relativo) |
 | `DAYS_LAST_DUE` | `last_due_day` | Dia do último vencimento (relativo) |
 
+**Observação:** `DAYS_LAST_DUE` também usa o código 365243 em parte dos contratos, no lugar de uma data real. O tratamento é o mesmo do tempo de emprego, na fase de SQL.
+
 ## application_train (clientes)
 
 Dados cadastrais do cliente no momento do pedido atual.
