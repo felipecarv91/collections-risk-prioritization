@@ -75,3 +75,9 @@ A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, co
 **Motivo:** o corte em -365 preserva mais clientes (202.341 contra 175.841) e mais que o dobro de casos de risco (3.480 contra 1.558), o que dá mais exemplos para o modelo aprender. A taxa de risco na janela é de 1,7%: a base é desbalanceada, por isso o modelo será avaliado pela capacidade de ordenar os clientes de risco no topo da lista, e não pela acurácia.
 
 **Censura:** parcelas que vencem nos últimos 15 dias antes do dia 0 ficam fora do período de previsão, porque não houve tempo de observar um atraso acima de 15 dias nelas.
+
+## 14. Base por cliente: clientes sem cadastro e momento do cadastro
+
+**Clientes sem cadastro:** parte dos clientes com parcelas vem do arquivo de teste do Kaggle, que não foi carregado. Eles ficam na base (`has_profile = 0`), com o cadastro vazio, porque o comportamento de pagamento deles é completo e importa para a visão de caixa. Como tratá-los no modelo é decidido na fase de Python.
+
+**Momento do cadastro:** os dados cadastrais (renda, idade, emprego) são do pedido atual, ou seja, posteriores à data de corte. É uma limitação da base, registrada no README. O comportamento de pagamento, principal fonte de informação do modelo, respeita a data de corte.
