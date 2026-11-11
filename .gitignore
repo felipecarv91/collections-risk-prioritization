@@ -1,0 +1,20 @@
+# Dados do Kaggle: as regras da competição proíbem redistribuir a base
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Configurações locais
+.env
+.vscode/
+
+# Power BI: configurações locais e cache
+*.pbix.bak
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+
+# Windows
+Thumbs.db
+desktop.ini
