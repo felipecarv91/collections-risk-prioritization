@@ -101,10 +101,17 @@ Criada em `sql/05_analytics_client_base.sql`. Data de corte no dia -365 e perío
 | `recent_installments` | Parcelas vencidas nos 6 meses antes do corte (dias -545 a -366) |
 | `recent_pct_late` | % dessas parcelas com algum atraso. Vazio para quem não teve parcelas recentes |
 | `recent_max_days_late` | Maior atraso nessas parcelas. Vazio para quem não teve parcelas recentes |
+| `open_overdue_installments` | Parcelas vencidas antes do corte e ainda sem pagamento no dia do corte |
+| `open_overdue_amount` | Valor dessas parcelas em aberto |
+| `active_contracts_at_cutoff` | Contratos com parcelas a vencer depois do corte, pelas condições do contrato |
+| `scheduled_amount_after_cutoff` | Saldo a vencer depois do corte (parcelas restantes × valor da parcela) |
+| `scheduled_window_amount` | Valor previsto para vencer no período de previsão, pelas condições dos contratos existentes no corte. É o valor a receber usado na fila de cobrança (item 22 de `docs/decisoes.md`) |
+| `days_since_last_contract` | Dias entre a decisão do contrato mais recente e o corte |
+| `contracts_last_year` | Contratos com decisão no ano anterior ao corte |
 | `has_profile` | 1 quando o cliente tem cadastro em `application_train`, 0 quando não tem |
 | `income`, `age_years`, `years_employed`, `no_current_job`, `income_type`, `education_level`, `region_rating` | Cadastro, como em `staging.clients`. Vazio quando `has_profile = 0` |
 | `window_installments` | Parcelas no período de previsão, só de contratos existentes no corte |
-| `window_amount_due` | Valor a receber no período (ver limitação no item 21 de `docs/decisoes.md`) |
+| `window_amount_due` | Valor cobrado de fato no período. Usado só como conferência do valor previsto (item 22 de `docs/decisoes.md`) |
 | `target_late_15` | 1 quando alguma parcela do período foi paga com mais de 15 dias de atraso ou não foi paga |
 | `target_late_30` | O mesmo, com o limite de 30 dias (análise de sensibilidade) |
 
@@ -116,7 +123,7 @@ Gravada pelo notebook 02.
 | --- | --- |
 | `client_id` | Identificador do cliente (chave primária) |
 | `risk_probability` | Probabilidade calibrada de atraso acima de 15 dias, dada por um modelo que não viu o cliente no treino |
-| `expected_value_at_risk` | `risk_probability × window_amount_due` |
+| `expected_value_at_risk` | `risk_probability × scheduled_window_amount` (valor previsto no corte) |
 | `risk_decile` | Decil de risco pela probabilidade: 1 são os 10% de maior risco |
 
 ### analytics.collection_strategy

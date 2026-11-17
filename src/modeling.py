@@ -18,6 +18,14 @@ NUMERIC_FEATURES = [
     "recent_installments",
     "recent_pct_late",
     "recent_max_days_late",
+    # Carteira no dia do corte, calculada pelas condições dos contratos
+    "open_overdue_installments",
+    "log_open_overdue_amount",
+    "active_contracts_at_cutoff",
+    "log_scheduled_amount_after_cutoff",
+    "days_since_last_contract",
+    "contracts_last_year",
+    # Cadastro
     "has_profile",
     "log_income",
     "age_years",
@@ -34,6 +42,11 @@ FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 PROFILE_NUMERIC = ["has_profile", "log_income", "age_years", "years_employed",
                    "no_current_job", "region_rating"]
 BEHAVIOR_FEATURES = [c for c in NUMERIC_FEATURES if c not in PROFILE_NUMERIC]
+
+# Variáveis de carteira no corte, testadas no notebook 02 contra o conjunto original
+PORTFOLIO_FEATURES = ["open_overdue_installments", "log_open_overdue_amount", "active_contracts_at_cutoff",
+                      "log_scheduled_amount_after_cutoff", "days_since_last_contract", "contracts_last_year"]
+PAYMENT_HISTORY_FEATURES = [c for c in BEHAVIOR_FEATURES if c not in PORTFOLIO_FEATURES]
 
 # Tipos de renda com poucos clientes viram "Other" (ver docs/decisoes.md, item 17)
 RARE_INCOME_TYPES = ["Unemployed", "Maternity leave", "Student"]
@@ -59,6 +72,11 @@ def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     # Valores monetários têm cauda longa: o logaritmo aproxima clientes muito grandes dos demais
     X["log_hist_amount_due"] = np.log1p(df["hist_amount_due"])
     X["log_income"] = np.log1p(df["income"])
+    X["log_open_overdue_amount"] = np.log1p(df["open_overdue_amount"])
+    X["log_scheduled_amount_after_cutoff"] = np.log1p(df["scheduled_amount_after_cutoff"])
+
+    # Dias desde o último contrato: limitado a 10 anos, porque valores maiores não diferenciam clientes
+    X["days_since_last_contract"] = df["days_since_last_contract"].clip(upper=3650)
 
     # Atrasos extremos (parcelas em aberto há anos) são limitados a 365 dias
     for col in ["hist_max_days_late", "hist_avg_days_late", "recent_max_days_late"]:

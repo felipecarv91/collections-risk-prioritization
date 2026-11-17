@@ -112,17 +112,17 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 
 **Desbalanceamento:** peso de classe (`class_weight="balanced"`) no treino, seguido de calibração isotônica, porque o peso de classe infla as probabilidades e o valor esperado em risco depende de probabilidades realistas.
 
-**Variáveis fora do modelo:** o valor a receber no período (`window_amount_due`) é usado só para medir o valor em risco, não como variável.
+**Variáveis fora do modelo:** o valor a receber no período (`scheduled_window_amount`, previsto no corte; ver item 22) é usado só para medir o valor em risco, não como variável.
 
 **Scores finais:** cada cliente recebe a probabilidade de um modelo que não o viu no treino (validação cruzada sobre a base inteira), gravada em `analytics.client_scores` com o valor esperado em risco e o decil de risco.
 
 ## 19. Modelo final só com o comportamento de pagamento
 
-**Regra:** o modelo final usa só as 11 variáveis de comportamento de pagamento até a data de corte. Renda, idade, emprego, tipo de renda, escolaridade e região ficam de fora.
+**Regra:** o modelo final usa só as 17 variáveis de comportamento até a data de corte: 11 de histórico de pagamento e 6 de carteira no corte (item 22). Renda, idade, emprego, tipo de renda, escolaridade e região ficam de fora.
 
 **Alternativa considerada:** usar também o cadastro.
 
-**Motivo:** o cadastro é do pedido atual, posterior à data de corte (item 14), e não é um critério justo para decidir como cobrar alguém: dois clientes com o mesmo histórico de pagamento devem receber a mesma abordagem. O notebook 02 (seção 8.1) mede o custo dessa escolha por validação cruzada dentro do treino. Com o cadastro, a AUC subiria de 0,755 para 0,763, a precisão média de 0,110 para 0,114 e os casos no top 10% de 45,1% para 45,8%; o valor em risco capturado no top 10% ficaria igual (40,7%). O ganho é pequeno diante dos dois motivos acima.
+**Motivo:** o cadastro é do pedido atual, posterior à data de corte (item 14), e não é um critério justo para decidir como cobrar alguém: dois clientes com o mesmo histórico de pagamento devem receber a mesma abordagem. O notebook 02 (seção 8.1) mede o custo dessa escolha por validação cruzada dentro do treino. Com o cadastro, a AUC subiria de 0,766 para 0,773, a precisão média de 0,134 para 0,136, os casos no top 10% de 47,4% para 47,7% e o valor em risco capturado no top 10% de 49,2% para 49,4%. O ganho é pequeno diante dos dois motivos acima.
 
 ## 20. Régua de cobrança
 
@@ -138,4 +138,14 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 
 **Efeito:** quem quita antes do prazo costuma ser bom pagador. Com o valor a receber menor, esse cliente desce na fila por valor esperado em risco, o que deixa a régua um pouco melhor na avaliação do que seria na prática. O modelo não é afetado, porque o valor a receber não é variável dele (item 18), e as probabilidades continuam as mesmas.
 
-**Alternativa considerada:** calcular o valor a receber pelo calendário de `staging.contracts` (valor da parcela e prazo), como era conhecido no corte. Ficou de fora para manter a definição simples e coerente com a classificação das parcelas; a limitação fica registrada também no README.
+**Resolvida no item 22:** a fila e a medição do valor em risco passaram a usar o valor previsto no corte pelas condições dos contratos. Na conta direta do item 22, o total previsto ficou 1,1% abaixo do cobrado de fato; a estimativa acima, feita antes, é mantida só como registro.
+
+## 22. Valor a receber previsto no dia do corte e variáveis de carteira
+
+**Valor a receber:** a fila de cobrança e a medição do valor em risco passaram a usar o valor previsto para vencer no período, calculado pelas condições de cada contrato existente no corte (primeiro vencimento, prazo e valor da parcela; a parcela k vence 30 × (k − 1) dias depois da primeira). É o valor que a empresa conheceria no dia do corte. Na conferência, o valor previsto (41,12 bilhões) ficou 1,1% abaixo do cobrado de fato (41,58 bilhões), e só 80 clientes ficaram sem valor previsto. Isso resolve a limitação do item 21: quem quitou antes do prazo não desce mais na fila por um valor que só se conheceria depois.
+
+**Variáveis de carteira no corte:** parcelas vencidas e ainda em aberto no dia do corte (quantidade e valor), contratos ativos, saldo a vencer, dias desde o último contrato e contratos feitos no último ano. Todas usam só informação disponível no corte. O notebook 02 compara, por validação cruzada no treino, o modelo com e sem essas variáveis, e fica com o conjunto de maior precisão média.
+
+**Quanto do ganho é do modelo:** o notebook 03 compara quatro filas (só valor, regra × valor, modelo só probabilidade e modelo × valor). A diferença entre "regra × valor" e "modelo × valor" mostra o ganho que vem do modelo, separado do ganho que vem de olhar o valor.
+
+**Resultado:** as variáveis de carteira elevaram a precisão média na validação cruzada de 0,110 para 0,124 (regressão logística) e de 0,109 para 0,134 (gradient boosting), que passou a ser o modelo escolhido. A parcela vencida e ainda em aberto no corte virou a segunda variável mais importante. Na régua, com 10% da carteira: só valor alcança 41,1% do valor em risco, regra × valor 53,9% e modelo × valor 58,9%. O ganho do modelo sobre a melhor alternativa sem modelo é de 5,0 pontos (8,2 pontos com 5% da carteira).
