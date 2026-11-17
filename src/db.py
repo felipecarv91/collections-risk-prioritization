@@ -22,4 +22,7 @@ def get_connection() -> pyodbc.Connection:
 
 def get_engine() -> Engine:
     """Cria um engine do SQLAlchemy, o formato que o pandas usa para ler tabelas do banco."""
-    return create_engine("mssql+pyodbc:///?odbc_connect=" + quote_plus(CONNECTION_STRING))
+    return create_engine(
+        "mssql+pyodbc:///?odbc_connect=" + quote_plus(CONNECTION_STRING),
+        fast_executemany=True,  # grava tabelas em blocos, muito mais rápido que linha a linha
+    )

@@ -103,3 +103,15 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 **Tipos de renda raros são agrupados.** Desempregado (15 clientes), licença-maternidade (1) e estudante (3) viram "outros": percentuais calculados sobre tão poucos clientes não são confiáveis.
 
 **Prioridade para o comportamento de pagamento.** O histórico e, principalmente, o atraso recente separam o risco muito melhor que o cadastro (ver `notebooks/01_exploracao.ipynb`). O cadastro também é posterior à data de corte, o que reforça usá-lo como informação complementar.
+
+## 18. Desenho do modelo
+
+**Avaliação:** a base é desbalanceada (1,7% em risco), então a métrica principal é a qualidade do topo da lista: precisão média (AP) e o percentual dos casos de risco e do valor em risco capturados nos 10% e 20% de maior score. A AUC é reportada como apoio. A acurácia não é usada.
+
+**Comparação:** uma regra simples (ordenar pelo % de atraso recente) serve de referência; regressão logística e gradient boosting só se justificam se a superarem. O modelo é escolhido por validação cruzada em 5 partes dentro do treino; o teste (30% dos clientes, estratificado) é usado uma única vez, na avaliação final.
+
+**Desbalanceamento:** peso de classe (`class_weight="balanced"`) no treino, seguido de calibração isotônica, porque o peso de classe infla as probabilidades e o valor esperado em risco depende de probabilidades realistas.
+
+**Variáveis fora do modelo:** o valor a receber no período (`window_amount_due`) é usado só para medir o valor em risco, não como variável.
+
+**Scores finais:** cada cliente recebe a probabilidade de um modelo que não o viu no treino (validação cruzada sobre a base inteira), gravada em `analytics.client_scores` com o valor esperado em risco e o decil de risco.
