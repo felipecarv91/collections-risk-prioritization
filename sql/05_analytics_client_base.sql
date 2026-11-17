@@ -7,7 +7,8 @@
 -- Data de corte: dia -365. Período de previsão: do dia -365 ao dia -15
 -- (as parcelas dos últimos 15 dias ficam de fora: não houve tempo de observar atraso).
 -- Cliente em risco: pelo menos uma parcela do período quitada com mais de 15 dias de atraso,
--- ou não paga. Ver docs/decisoes.md, itens 12 e 13.
+-- ou não paga. O período considera só contratos que já existiam no dia do corte.
+-- Ver docs/decisoes.md, itens 12, 13 e 15.
 
 USE collections_risk;
 GO
@@ -63,16 +64,22 @@ history AS (
     GROUP BY client_id
 ),
 prediction_window AS (
-    -- Resultado no período de previsão
+    -- Resultado no período de previsão.
+    -- Só entram contratos que já existiam no dia do corte: a pergunta é
+    -- "da carteira atual, quem vai atrasar?". Contratos abertos depois do corte
+    -- não eram conhecidos e não podem ser cobrados do modelo (ver docs/decisoes.md, item 15).
     SELECT
-        client_id,
-        COUNT(*)             AS window_installments,
-        SUM(amount_due)      AS window_amount_due,
-        MAX(days_late_final) AS window_max_days_late
-    FROM installments
-    WHERE due_day >= @cutoff
-      AND due_day < @window_end
-    GROUP BY client_id
+        i.client_id,
+        COUNT(*)               AS window_installments,
+        SUM(i.amount_due)      AS window_amount_due,
+        MAX(i.days_late_final) AS window_max_days_late
+    FROM installments AS i
+    INNER JOIN staging.contracts AS c
+        ON c.contract_id = i.contract_id
+    WHERE i.due_day >= @cutoff
+      AND i.due_day < @window_end
+      AND c.decision_day < @cutoff
+    GROUP BY i.client_id
 )
 SELECT
     h.client_id,
@@ -113,7 +120,7 @@ ALTER TABLE analytics.client_base ALTER COLUMN client_id INT NOT NULL;
 ALTER TABLE analytics.client_base ADD CONSTRAINT pk_analytics_client_base PRIMARY KEY (client_id);
 GO
 
--- Conferência: deve bater com sql/exploration/installment_timing.sql (consulta 3)
+-- Conferência
 SELECT
     COUNT(*)                                                    AS clientes,
     SUM(target_late_15)                                         AS em_risco_15,

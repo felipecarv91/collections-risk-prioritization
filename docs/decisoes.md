@@ -12,7 +12,7 @@ Decisões relevantes do projeto, com as alternativas consideradas e o motivo de 
 
 **Alternativa considerada:** modelo clássico de concessão de crédito, que só separa bons e maus pagadores.
 
-**Motivo:** em serviços pré-pagos parcelados, o atraso afeta principalmente o fluxo de caixa, e a cobrança precisa preservar o relacionamento com o cliente. Por isso o projeto mede o valor esperado em risco e define a abordagem de cobrança de cada cliente.
+**Motivo:** em crédito parcelado ao consumidor, o atraso afeta diretamente o fluxo de caixa, e a cobrança precisa preservar o relacionamento com o cliente. Por isso o projeto mede o valor esperado em risco e define a abordagem de cobrança de cada cliente.
 
 ## 3. Escopo: 3 das 7 tabelas
 
@@ -81,3 +81,17 @@ A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, co
 **Clientes sem cadastro:** parte dos clientes com parcelas vem do arquivo de teste do Kaggle, que não foi carregado. Eles ficam na base (`has_profile = 0`), com o cadastro vazio, porque o comportamento de pagamento deles é completo e importa para a visão de caixa. Como tratá-los no modelo é decidido na fase de Python.
 
 **Momento do cadastro:** os dados cadastrais (renda, idade, emprego) são do pedido atual, ou seja, posteriores à data de corte. É uma limitação da base, registrada no README. O comportamento de pagamento, principal fonte de informação do modelo, respeita a data de corte.
+
+## 15. Revisão: período de previsão só com contratos existentes no dia do corte
+
+**Problema encontrado na revisão do desenho:** a primeira versão da base por cliente incluía, no período de previsão, parcelas de contratos abertos depois da data de corte. O modelo seria cobrado por prever atrasos em contratos que ninguém conhecia no dia do corte, misturando duas perguntas ("quem da carteira atual vai atrasar" e "quem vai abrir um contrato novo e atrasar"), e o valor a receber incluiria dinheiro que a empresa não tinha como prever.
+
+**Correção:** o período de previsão considera só contratos com decisão anterior ao corte (`decision_day < -365`). A pergunta passa a ser exatamente a da cobrança: da carteira atual, quem vai atrasar.
+
+**Resultado após a correção:** 156.333 clientes, 2.621 em risco pelo critério de 15 dias (1,68%) e 1.095 pelo de 30 dias; 134.105 com cadastro. A taxa de risco ficou praticamente igual à da primeira versão (1,72%), com menos clientes, porque saíram os que só tinham parcelas de contratos novos no período.
+
+**Alternativa considerada:** prever parcela a parcela em vez de cliente a cliente. Daria mais casos de risco, mas tornaria o projeto mais complexo sem mudar a conclusão, e a ação de cobrança é feita por cliente.
+
+## 16. Limitação: todo cliente fez um novo pedido no dia 0
+
+Na base, as datas são relativas a um novo pedido de crédito feito por cada cliente. O período analisado é, portanto, o ano anterior a esse pedido, e quem pede crédito novamente tende a estar em dia. Isso provavelmente reduz a taxa de risco observada. Nenhuma escolha de data de corte elimina esse efeito nesta base; ele fica registrado como limitação no README.

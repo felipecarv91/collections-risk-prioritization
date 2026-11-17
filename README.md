@@ -1,6 +1,6 @@
 # Priorização de cobrança por risco de inadimplência
 
-Análise de uma carteira de recebíveis parcelados para estimar quanto do caixa previsto está em risco e definir a abordagem de cobrança mais adequada para cada cliente: lembrete, contato ou renegociação.
+Análise de uma carteira de crédito parcelado ao consumidor para estimar quanto do caixa previsto está em risco e definir a abordagem de cobrança mais adequada para cada cliente: lembrete, contato ou renegociação.
 
 **Status:** em desenvolvimento.
 
