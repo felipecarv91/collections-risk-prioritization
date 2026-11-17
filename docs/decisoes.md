@@ -115,3 +115,9 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 **Variáveis fora do modelo:** o valor a receber no período (`window_amount_due`) é usado só para medir o valor em risco, não como variável.
 
 **Scores finais:** cada cliente recebe a probabilidade de um modelo que não o viu no treino (validação cruzada sobre a base inteira), gravada em `analytics.client_scores` com o valor esperado em risco e o decil de risco.
+
+## 20. Régua de cobrança
+
+**Fila ordenada pelo valor esperado em risco** (probabilidade × valor a receber), e não só pela probabilidade, porque a pergunta do projeto é sobre caixa. O notebook 03 compara as duas filas.
+
+**Quatro ações:** renegociação (10% do topo da fila com atraso acima de 30 dias nos 6 meses antes do corte), contato (restante dos 10% do topo), lembrete (os 20% seguintes) e monitoramento (os 70% restantes). Os cortes de 10% e 30% representam a capacidade de uma equipe que atende pessoalmente 1 em cada 10 clientes e envia mensagens automáticas para mais 2 em cada 10; na prática, seriam ajustados à capacidade real. O resultado fica em `analytics.collection_strategy`.
