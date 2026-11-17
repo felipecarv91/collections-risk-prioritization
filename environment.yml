@@ -11,3 +11,4 @@ dependencies:
   - pyodbc=5.1
   - sqlalchemy=2.0
   - ipykernel=6.29
+  - jupyterlab=4.2

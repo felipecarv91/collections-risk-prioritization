@@ -4,7 +4,8 @@
 -- 1. Dentro de cada versão do calendário, os pagamentos em partes são somados.
 -- 2. Entre versões, o valor devido é somado (as versões são partes da mesma parcela),
 --    mas o valor pago não, porque o mesmo pagamento aparece repetido em cada versão.
--- 3. O dia do pagamento é o do último pagamento, quando a parcela fica quitada.
+-- 3. O dia do pagamento é o do último pagamento registrado, mesmo quando a parcela
+--    foi quitada só em parte. É a data em que o cliente terminou de pagar o que pagou.
 -- 4. Parcela sem nenhum pagamento fica com valor pago 0 e dia do pagamento vazio.
 -- Só entram parcelas dos contratos do recorte (staging.contracts).
 

@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from db import get_engine
+from db import read_query
 
 # Variáveis numéricas: comportamento de pagamento até o corte e cadastro
 NUMERIC_FEATURES = [
@@ -36,18 +36,17 @@ PROFILE_NUMERIC = ["has_profile", "log_income", "age_years", "years_employed",
 BEHAVIOR_FEATURES = [c for c in NUMERIC_FEATURES if c not in PROFILE_NUMERIC]
 
 # Tipos de renda com poucos clientes viram "Other" (ver docs/decisoes.md, item 17)
-RARE_INCOME_TYPES = ["Unemployed", "Maternity leave", "Student", "Businessman"]
-
-TEXT_COLUMNS = ["income_type", "education_level"]
+RARE_INCOME_TYPES = ["Unemployed", "Maternity leave", "Student"]
 
 
 def load_client_base() -> pd.DataFrame:
-    """Lê analytics.client_base e converte as colunas decimais para número."""
-    df = pd.read_sql("SELECT * FROM analytics.client_base", get_engine())
-    num_cols = df.columns.difference(TEXT_COLUMNS)
-    df[num_cols] = df[num_cols].astype(float)
-    df["client_id"] = df["client_id"].astype(int)
-    return df
+    """Lê analytics.client_base, com as colunas decimais convertidas para número.
+
+    O ORDER BY fixa a ordem das linhas: sem ele, o banco pode devolver outra ordem,
+    e a divisão entre treino e teste e os desempates no ranking mudariam.
+    """
+    return read_query("SELECT * FROM analytics.client_base ORDER BY client_id",
+                      text_columns=CATEGORICAL_FEATURES)
 
 
 def prepare_features(df: pd.DataFrame) -> pd.DataFrame:

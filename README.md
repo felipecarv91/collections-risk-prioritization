@@ -1,31 +1,112 @@
-# Priorização de cobrança por risco de inadimplência
+# Priorização de cobrança por risco de atraso
 
-Análise de uma carteira de crédito parcelado ao consumidor para estimar quanto do caixa previsto está em risco e definir a abordagem de cobrança mais adequada para cada cliente: lembrete, contato ou renegociação.
+Numa carteira de crédito parcelado ao consumidor, quanto do caixa previsto está em risco, e quem a equipe de cobrança deve procurar primeiro?
 
-**Status:** em desenvolvimento.
+O projeto responde a essas duas perguntas com SQL Server, Python e Power BI, usando o histórico de pagamento parcela a parcela da base pública Home Credit. O resultado é uma fila de cobrança com quatro ações (renegociação, contato, lembrete e monitoramento), avaliada contra o que de fato aconteceu com cada cliente.
 
-## Pergunta de negócio
+**Status:** análise e modelo concluídos; painel do Power BI em construção.
 
-Quanto do caixa previsto está em risco e quais clientes devem receber cada tipo de abordagem para recuperar esse valor sem desgastar o relacionamento?
+## Principais resultados
 
-## Ferramentas
+- **O problema:** de 156.333 clientes com 41,6 bilhões a receber no período analisado, 2.621 (1,68%) atrasaram mais de 15 dias. Eles respondem por 722,5 milhões, 1,7% do valor.
+- **O modelo:** os 10% de clientes com maior risco concentram 43,3% dos casos de atraso, contra 38,5% da melhor regra manual (ordenar pelo atraso recente).
+- **A fila de cobrança:** ordenando pelo valor esperado em risco (probabilidade × valor a receber), contatar 10% da carteira alcança 58,1% do dinheiro que de fato ficou em risco. Com 30% da carteira, chega a 82,3%. Ordenar só pela probabilidade alcançaria 40,3% e 65,9%.
 
-- **SQL Server:** carga, tratamento e agregação dos dados
-- **Python:** análise exploratória, modelo de risco e segmentação (pandas, scikit-learn)
-- **Power BI:** painel de acompanhamento da cobrança
+![Valor em risco alcançado por cada fila](docs/figures/03_fila_por_valor.png)
+
+## Como o problema foi montado
+
+A base não tem datas de calendário: tudo é contado em dias antes de um novo pedido de crédito do cliente (dia 0). Para simular a situação real da cobrança, o projeto "volta no tempo" até uma data de corte:
+
+| Período | Dias | Para que serve |
+| --- | --- | --- |
+| Histórico | antes de -365 | O que o modelo pode ver: como o cliente pagou até o corte |
+| Previsão | de -365 a -15 | O que o modelo tenta prever: se o cliente vai atrasar mais de 15 dias |
+| Fora da análise | de -15 a 0 | Parcelas recentes demais para observar um atraso de 15 dias |
+
+Três cuidados para o modelo não "ver o futuro":
+
+- uma parcela vencida antes do corte e paga depois dele conta, no histórico, como em aberto no dia do corte;
+- o período de previsão só inclui contratos que já existiam no corte, porque a pergunta é "quem da carteira atual vai atrasar";
+- os dados cadastrais (renda, idade, emprego) são do pedido atual, posteriores ao corte, e por isso ficam fora do modelo.
+
+Cada escolha está registrada, com as alternativas consideradas, em [`docs/decisoes.md`](docs/decisoes.md).
+
+## Modelo
+
+Foram comparadas uma regra simples, uma regressão logística e um gradient boosting, todos só com o comportamento de pagamento. A base é desbalanceada, então a avaliação olha o topo da lista, não a acurácia. A escolha foi feita por validação cruzada no treino; o teste (30% dos clientes) só mede o resultado.
+
+| Abordagem (teste) | AUC | Precisão média | Casos no top 10% | Casos no top 20% |
+| --- | --- | --- | --- | --- |
+| Regra simples (% de atraso recente) | 0,714 | 0,062 | 38,5% | 53,9% |
+| **Regressão logística (escolhida)** | **0,737** | **0,093** | **43,3%** | **55,6%** |
+| Gradient boosting | 0,724 | 0,099 | 43,3% | 56,0% |
+
+A regressão logística empatou com o gradient boosting na validação cruzada e foi escolhida por ser mais simples de explicar. As probabilidades foram calibradas (calibração isotônica): no decil de maior risco, a probabilidade média prevista é de 7,6%, contra 7,2% de atraso real, e a soma das probabilidades da carteira (2.623) fica praticamente igual ao número de clientes que atrasaram (2.621).
+
+**Sensibilidade:** com o critério de atraso acima de 30 dias no lugar de 15, o mesmo modelo alcança 52,1% dos casos no top 10% (AUC de 0,775). A conclusão não depende do limite escolhido.
+
+**Cadastro:** renda, idade e emprego ficaram fora do modelo por serem posteriores ao corte e por não serem um critério justo de cobrança. Na validação cruzada, incluí-los subiria a AUC de 0,755 para 0,763 e os casos no top 10% de 45,1% para 45,8%, sem mudar o valor em risco capturado. O custo da escolha é pequeno.
+
+## Régua de cobrança
+
+| Ação | Quem recebe | Clientes | Taxa de atraso real | Valor em risco real coberto |
+| --- | --- | --- | --- | --- |
+| Renegociação | Topo da fila (10%) com atraso acima de 30 dias nos 6 meses antes do corte | 585 | 26,8% | 5,7% |
+| Contato | Restante dos 10% do topo | 15.048 | 4,8% | 52,3% |
+| Lembrete | Os 20% seguintes | 31.266 | 2,0% | 24,2% |
+| Monitoramento | Os 70% restantes | 109.434 | 1,0% | 17,7% |
+
+Os cortes de 10% e 30% representam uma equipe que atende pessoalmente 1 em cada 10 clientes e manda mensagens automáticas para mais 2 em cada 10. Na prática, seriam ajustados à capacidade real.
+
+## Limitações
+
+- **Todo cliente fez um novo pedido no dia 0.** Quem volta a pedir crédito tende a estar em dia, o que provavelmente reduz a taxa de atraso observada.
+- **Cadastro posterior ao corte.** Por isso ele fica fora do modelo e aparece só na análise exploratória e no painel.
+- **Valor a receber medido pelo que foi cobrado de fato.** Clientes que quitaram contratos antes do prazo ficaram com valor menor do que o previsto no corte e desceram na fila, o que deixa a régua um pouco melhor nesta avaliação do que seria na prática.
+- **Parcelas não pagas quase não aparecem na base** (1.152 parcelas, menos de 0,01% do total). Na prática, o alvo mede "pagou com mais de 15 dias de atraso", e não "parou de pagar".
+- **Desempenho moderado** (AUC de 0,74), coerente com um modelo que só conhece o histórico de pagamento na própria empresa, sem dados de bureau de crédito.
+
+## Estrutura
+
+```
+sql/                  banco collections_risk, em três camadas (raw, staging, analytics)
+  exploration/        consultas que embasaram as regras, com os resultados comentados
+src/
+  db.py               conexão com o SQL Server, leitura e gravação de tabelas
+  load_raw.py         carga dos CSVs na camada raw
+  eda.py              funções da análise exploratória
+  modeling.py         variáveis do modelo e métricas de captura
+notebooks/
+  01_exploracao       quem atrasa e o que o histórico diz sobre isso
+  02_modelo           comparação, avaliação, calibração e scores de toda a carteira
+  03_regua_de_cobranca  fila por valor esperado e ação de cada cliente
+docs/
+  decisoes.md         decisões do projeto, com alternativas e motivos
+  dicionario_de_dados.md  tabelas e colunas, da base original às tabelas do Power BI
+```
+
+## Como reproduzir
+
+**Pré-requisitos:** Windows com SQL Server (o projeto usou a edição Developer 2025) acessível em `localhost` pelo login do Windows, [ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server) e conda.
+
+1. Aceite as regras da competição [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk) no Kaggle, baixe os dados e extraia os CSVs em `data/raw/`. As regras não permitem redistribuir os arquivos, por isso eles não estão no repositório.
+2. Crie e ative o ambiente:
+   ```bash
+   conda env create -f environment.yml
+   conda activate collections-risk
+   ```
+3. Crie o banco e as tabelas brutas, rodando no SSMS (ou com `sqlcmd -S localhost -E -C -i <arquivo>`) os scripts `sql/01_create_database.sql` e `sql/02_create_raw_tables.sql`.
+4. Carregue os CSVs (cerca de 15 milhões de linhas; o script confere se o total no banco bate com o do arquivo):
+   ```bash
+   python src/load_raw.py
+   ```
+5. Rode, nesta ordem, `sql/03` a `sql/06`. Cada script termina com uma consulta de conferência.
+6. Rode os notebooks em ordem, com o ambiente ativado. O 02 grava `analytics.client_scores` e leva alguns minutos; o 03 depende dele e grava `analytics.collection_strategy`.
+   ```bash
+   jupyter lab
+   ```
 
 ## Dados
 
-Base pública [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk), do Kaggle. As regras da competição não permitem redistribuir os arquivos, por isso eles não estão neste repositório.
-
-Para reproduzir o projeto:
-
-1. Aceite as regras da competição no Kaggle e baixe os dados.
-2. Extraia os arquivos na pasta `data/raw/`.
-
-## Ambiente
-
-```bash
-conda env create -f environment.yml
-conda activate collections-risk
-```
+Base pública [Home Credit Default Risk](https://www.kaggle.com/competitions/home-credit-default-risk), do Kaggle. São usadas 3 das 7 tabelas: o histórico de pagamento das parcelas, os contratos e o cadastro dos clientes.

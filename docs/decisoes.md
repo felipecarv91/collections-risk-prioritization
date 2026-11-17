@@ -64,7 +64,7 @@ A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, co
 
 **Alternativas consideradas:** mais de 5 dias e mais de 30 dias.
 
-**Motivo:** no histórico completo, 27,7% dos clientes já tiveram atraso acima de 5 dias, 13,3% acima de 15 dias e 5,2% acima de 30 dias (ver `sql/exploration/installment_timing.sql`). Acima de 5 dias marcaria quase um terço da carteira e incluiria atrasos de atrito, como fim de semana e compensação bancária. Acima de 30 dias é o padrão de mercado para inadimplência de crédito, mas seria raro demais na janela de previsão para treinar o modelo. Quinze dias representa atraso que já compromete o caixa do mês, coerente com a pergunta de negócio. Para testar a robustez da escolha, o modelo também será treinado com o limite de 30 dias, e a comparação será apresentada no README.
+**Motivo:** no histórico completo, 27,7% dos clientes já tiveram atraso acima de 5 dias, 13,3% acima de 15 dias e 5,2% acima de 30 dias (ver `sql/exploration/installment_timing.sql`). Acima de 5 dias marcaria quase um terço da carteira e incluiria atrasos de atrito, como fim de semana e compensação bancária. Acima de 30 dias é o padrão de mercado para inadimplência de crédito, mas seria raro demais na janela de previsão para treinar o modelo. Quinze dias representa atraso que já compromete o caixa do mês, coerente com a pergunta de negócio. Para testar a robustez da escolha, o modelo também foi treinado com o limite de 30 dias (`notebooks/02_modelo.ipynb`, seção 8), e a comparação está no README.
 
 ## 13. Data de corte: 365 dias antes do pedido atual
 
@@ -72,7 +72,7 @@ A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, co
 
 **Alternativa considerada:** corte em -180 (previsão de 6 meses).
 
-**Motivo:** o corte em -365 preserva mais clientes (202.341 contra 175.841) e mais que o dobro de casos de risco (3.480 contra 1.558), o que dá mais exemplos para o modelo aprender. A taxa de risco na janela é de 1,7%: a base é desbalanceada, por isso o modelo será avaliado pela capacidade de ordenar os clientes de risco no topo da lista, e não pela acurácia.
+**Motivo:** o corte em -365 preserva mais clientes (202.341 contra 175.841) e mais que o dobro de casos de risco (3.480 contra 1.558), o que dá mais exemplos para o modelo aprender. Esses números são da comparação feita antes da revisão do item 15, que depois tirou do período de previsão os contratos abertos após o corte; a comparação entre os dois cortes não foi refeita depois disso. Os números da base final estão no item 15. A taxa de risco na janela é de 1,7%: a base é desbalanceada, por isso o modelo será avaliado pela capacidade de ordenar os clientes de risco no topo da lista, e não pela acurácia.
 
 **Censura:** parcelas que vencem nos últimos 15 dias antes do dia 0 ficam fora do período de previsão, porque não houve tempo de observar um atraso acima de 15 dias nelas.
 
@@ -98,9 +98,9 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 
 ## 17. Decisões da análise exploratória
 
-**Clientes sem cadastro ficam no modelo.** A taxa de risco deles (1,51%) é próxima da dos clientes com cadastro (1,70%), e o comportamento de pagamento deles está completo. Entram com o indicador `has_profile` e tratamento dos campos vazios.
+**Clientes sem cadastro ficam no modelo.** A taxa de risco deles (1,51%) é próxima da dos clientes com cadastro (1,70%), e o comportamento de pagamento deles está completo. Como o modelo final usa só o comportamento (item 19), eles são tratados exatamente como os demais. O indicador `has_profile` e o tratamento dos campos vazios do cadastro ficam só na comparação com cadastro do notebook 02.
 
-**Tipos de renda raros são agrupados.** Desempregado (15 clientes), licença-maternidade (1) e estudante (3) viram "outros": percentuais calculados sobre tão poucos clientes não são confiáveis.
+**Tipos de renda raros são agrupados.** Desempregado (15 clientes), licença-maternidade (1) e estudante (3) viram "outros": percentuais calculados sobre tão poucos clientes não são confiáveis. O agrupamento vale para a comparação com cadastro e para o painel.
 
 **Prioridade para o comportamento de pagamento.** O histórico e, principalmente, o atraso recente separam o risco muito melhor que o cadastro (ver `notebooks/01_exploracao.ipynb`). O cadastro também é posterior à data de corte, o que reforça usá-lo como informação complementar.
 
@@ -108,7 +108,7 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 
 **Avaliação:** a base é desbalanceada (1,7% em risco), então a métrica principal é a qualidade do topo da lista: precisão média (AP) e o percentual dos casos de risco e do valor em risco capturados nos 10% e 20% de maior score. A AUC é reportada como apoio. A acurácia não é usada.
 
-**Comparação:** uma regra simples (ordenar pelo % de atraso recente) serve de referência; regressão logística e gradient boosting só se justificam se a superarem. O modelo é escolhido por validação cruzada em 5 partes dentro do treino; o teste (30% dos clientes, estratificado) é usado uma única vez, na avaliação final.
+**Comparação:** uma regra simples (ordenar pelo % de atraso recente) serve de referência; regressão logística e gradient boosting só se justificam se a superarem. O modelo é escolhido por validação cruzada em 5 partes dentro do treino; o teste (30% dos clientes, estratificado) é usado só para medir o modelo já escolhido. Nenhuma escolha do projeto é feita olhando o teste.
 
 **Desbalanceamento:** peso de classe (`class_weight="balanced"`) no treino, seguido de calibração isotônica, porque o peso de classe infla as probabilidades e o valor esperado em risco depende de probabilidades realistas.
 
@@ -116,8 +116,26 @@ Na base, as datas são relativas a um novo pedido de crédito feito por cada cli
 
 **Scores finais:** cada cliente recebe a probabilidade de um modelo que não o viu no treino (validação cruzada sobre a base inteira), gravada em `analytics.client_scores` com o valor esperado em risco e o decil de risco.
 
+## 19. Modelo final só com o comportamento de pagamento
+
+**Regra:** o modelo final usa só as 11 variáveis de comportamento de pagamento até a data de corte. Renda, idade, emprego, tipo de renda, escolaridade e região ficam de fora.
+
+**Alternativa considerada:** usar também o cadastro.
+
+**Motivo:** o cadastro é do pedido atual, posterior à data de corte (item 14), e não é um critério justo para decidir como cobrar alguém: dois clientes com o mesmo histórico de pagamento devem receber a mesma abordagem. O notebook 02 (seção 8.1) mede o custo dessa escolha por validação cruzada dentro do treino. Com o cadastro, a AUC subiria de 0,755 para 0,763, a precisão média de 0,110 para 0,114 e os casos no top 10% de 45,1% para 45,8%; o valor em risco capturado no top 10% ficaria igual (40,7%). O ganho é pequeno diante dos dois motivos acima.
+
 ## 20. Régua de cobrança
 
 **Fila ordenada pelo valor esperado em risco** (probabilidade × valor a receber), e não só pela probabilidade, porque a pergunta do projeto é sobre caixa. O notebook 03 compara as duas filas.
 
 **Quatro ações:** renegociação (10% do topo da fila com atraso acima de 30 dias nos 6 meses antes do corte), contato (restante dos 10% do topo), lembrete (os 20% seguintes) e monitoramento (os 70% restantes). Os cortes de 10% e 30% representam a capacidade de uma equipe que atende pessoalmente 1 em cada 10 clientes e envia mensagens automáticas para mais 2 em cada 10; na prática, seriam ajustados à capacidade real. O resultado fica em `analytics.collection_strategy`.
+
+## 21. Limitação: valor a receber medido pelo que foi cobrado de fato
+
+**O que acontece:** o valor a receber no período (`window_amount_due`) soma as parcelas que de fato apareceram na base entre os dias -365 e -15, e não o calendário de parcelas que a empresa conhecia no dia do corte. Quando um cliente quita um contrato antes do prazo, as parcelas seguintes deixam de existir, e o valor a receber dele fica menor do que o previsto no corte.
+
+**Tamanho:** uma estimativa feita no banco, com meses de 30 dias, indica cerca de 53,9 mil contratos (49,3 mil clientes) existentes no corte e quitados mais de 2 meses antes do previsto dentro do período. Juntos, eles deixaram de faturar algo em torno de 7,4 bilhões, perto de 15% a mais sobre os 41,6 bilhões a receber. O número é aproximado e serve só para dar a ordem de grandeza.
+
+**Efeito:** quem quita antes do prazo costuma ser bom pagador. Com o valor a receber menor, esse cliente desce na fila por valor esperado em risco, o que deixa a régua um pouco melhor na avaliação do que seria na prática. O modelo não é afetado, porque o valor a receber não é variável dele (item 18), e as probabilidades continuam as mesmas.
+
+**Alternativa considerada:** calcular o valor a receber pelo calendário de `staging.contracts` (valor da parcela e prazo), como era conhecido no corte. Ficou de fora para manter a definição simples e coerente com a classificação das parcelas; a limitação fica registrada também no README.
