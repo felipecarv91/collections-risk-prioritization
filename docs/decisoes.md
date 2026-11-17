@@ -95,3 +95,11 @@ A coluna `TARGET` de `application_train` é o alvo da competição do Kaggle, co
 ## 16. Limitação: todo cliente fez um novo pedido no dia 0
 
 Na base, as datas são relativas a um novo pedido de crédito feito por cada cliente. O período analisado é, portanto, o ano anterior a esse pedido, e quem pede crédito novamente tende a estar em dia. Isso provavelmente reduz a taxa de risco observada. Nenhuma escolha de data de corte elimina esse efeito nesta base; ele fica registrado como limitação no README.
+
+## 17. Decisões da análise exploratória
+
+**Clientes sem cadastro ficam no modelo.** A taxa de risco deles (1,51%) é próxima da dos clientes com cadastro (1,70%), e o comportamento de pagamento deles está completo. Entram com o indicador `has_profile` e tratamento dos campos vazios.
+
+**Tipos de renda raros são agrupados.** Desempregado (15 clientes), licença-maternidade (1) e estudante (3) viram "outros": percentuais calculados sobre tão poucos clientes não são confiáveis.
+
+**Prioridade para o comportamento de pagamento.** O histórico e, principalmente, o atraso recente separam o risco muito melhor que o cadastro (ver `notebooks/01_exploracao.ipynb`). O cadastro também é posterior à data de corte, o que reforça usá-lo como informação complementar.
